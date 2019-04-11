@@ -3,11 +3,42 @@ Primary file for API
  */
 
 const http = require('http');
+const https = require('https');
 const url = require('url');
 const StringDecoder = require('string_decoder').StringDecoder;
+const fs = require('fs');
 
-// the server should respono to all requests with string
-const server = http.createServer(function(req, res) {
+const config = require('./config');
+
+
+// instantiate the http server
+const httpServer = http.createServer(function(req, res) {
+    unifiedServer(req, res);
+});
+
+// start the http server
+httpServer.listen(config.httpPort, function() {
+    console.log(`the server is listening on port ${config.httpPort}`)
+});
+
+
+// instantiate the https server
+const httpsServerOptions = {
+    'key': fs.readFileSync('./https/key.pem'),
+    'cert': fs.readFileSync('./https/cert.pem')
+}
+const httpsServer = https.createServer(httpsServerOptions, function(req, res) {
+    unifiedServer(req, res);
+});
+
+// start the https server
+httpsServer.listen(config.httpsPort, function() {
+    console.log(`the server is listening on port ${config.httpsPort}`)
+});
+
+
+// all the sever logic for both the http and https server
+const unifiedServer = function(req, res) {
 
     // get the url and parse it
     const parsedUrl = url.parse(req.url, true);
@@ -31,6 +62,7 @@ const server = http.createServer(function(req, res) {
 
     // handler the request data event fired whenever a new stream of data comes in
     req.on('data', function(data) {
+        // append the new incoming data stream to the buffer data string
         buffer += decoder.write(data);
     });
 
@@ -63,6 +95,7 @@ const server = http.createServer(function(req, res) {
             const payloadString = JSON.stringify(payload)
 
             // return the response
+            res.setHeader('Content-Type', 'application/json');
             res.writeHead(statusCode);
             res.end(payloadString);
 
@@ -71,20 +104,14 @@ const server = http.createServer(function(req, res) {
         })
 
     })
-
-});
-
-// start the server, and have it listen on port 3000
-server.listen(3000, function() {
-    console.log('the server is listening on port 3000')
-});
+}
 
 // define the handlers
 const handlers = {
     // sample handler
-    sample: function(data, callback) {
+    ping: function(data, callback) {
         // callback a http status code and a payload object
-        callback(406, data);
+        callback(200);
     },
     // not found handler
     notFound: function(data, callback) {
@@ -94,5 +121,5 @@ const handlers = {
 
 // define a request router
 const router = {
-    'sample': handlers.sample
+    'ping': handlers.ping
 }
