@@ -28,6 +28,35 @@ const helpers = {
         } catch(e) {
             return {}
         }
+    },
+
+    /**
+     *
+     * @param strLength
+     * create a string of random alphanumeric characters, of a given length
+     */
+    createRandomString: function(strLength) {
+
+        strLength = typeof(strLength) == 'number' && strLength > 0 ? strLength : false
+
+        if (strLength) {
+
+            const possibleCharacters = 'abcdefghijklmnopqrstuvwxyz0123456789'
+            let str = ''
+
+            // generate the random string of the requested length
+            for (let i = 1; i <= strLength; i++) {
+                // get a random character from the possibleCharacters string
+                const randomCharacter = possibleCharacters.charAt(Math.floor(Math.random() * possibleCharacters.length))
+                // append this character to the final string
+                str += randomCharacter
+            }
+
+            return str
+
+        } else {
+            return false
+        }
     }
 }
 
