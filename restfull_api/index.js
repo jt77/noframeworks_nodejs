@@ -10,7 +10,7 @@ const fs = require('fs');
 
 const handlers = require('./lib/handlers')
 const helpers = require('./lib/helpers')
-const config = require('./lib/config');
+const config = require('./lib/config')
 
 
 // instantiate the http server
