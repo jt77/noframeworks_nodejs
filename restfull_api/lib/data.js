@@ -105,14 +105,29 @@ lib.update = function(dir, filename, data, callback) {
     })
 }
 
+// delete a file
 lib.delete = function(dir, filename, callback) {
-
     // unlink or remove the file from the system
-    fs.unlink(`${lib.baseDir}${dir}/${filename}.json`, function(err) {
+    fs.unlink(`${lib.baseDir}${dir}/${filename}.json`, err => {
         if (!err) {
             callback(false)
         } else {
             console.log('error deleting the file')
+        }
+    })
+}
+
+// list all the items in a directory
+lib.list = function(dir, callback) {
+    fs.readdir(`${lib.baseDir}${dir}/`, function(err, data) {
+        if (!err && data && data.length > 0) {
+            let trimmedFileNames = []
+            data.forEach(fileName => {
+                trimmedFileNames.push(fileName.replace('.json', ''))
+            })
+            callback(false, trimmedFileNames)
+        } else {
+            callback(err, data)
         }
     })
 }
