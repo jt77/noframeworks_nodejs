@@ -15,6 +15,7 @@ const url = require('url')
 
 const _data = require('./data')
 const helpers = require('./helpers')
+const _logs = require('./logs')
 
 
 // instantiate the worker object
@@ -162,10 +163,14 @@ workers.processCheckOutcome = (originalCheckData, checkOutcome) => {
     // decide if an sms alert is warranted
     const alertWarranted = originalCheckData.lastChecked && originalCheckData.state != state ? true : false
 
+    // log the outcome
+    const timeOfCheck = Date.now()
+    workers.log(originalCheckData, checkOutcome, state, alertWarranted, timeOfCheck)
+
     // update the check data
     const newCheckData = originalCheckData
     newCheckData.state = state
-    newCheckData.lastChecked = Date.now()
+    newCheckData.lastChecked = timeOfCheck
 
     // save the updates
     _data.update('checks', newCheckData.id, newCheckData, err => {
@@ -197,6 +202,33 @@ workers.alertUserToStatusChange = newCheckData => {
 }
 
 
+workers.log = function(originalCheckData, checkOutcome, state, alertWarranted, timeOfCheck) {
+    // form the log data
+    const logData = {
+        check: originalCheckData,
+        outcome: checkOutcome,
+        state,
+        alert: alertWarranted,
+        time: timeOfCheck
+    }
+
+    // convert data to a string
+    const logString = JSON.stringify(logData)
+
+    // determine the name of the log file
+    const logFileName = originalCheckData.id
+
+    // append the log string to the file
+    _logs.append(logFileName, logString, function(err) {
+        if (!err) {
+            console.log('logging to the file succeeded')
+        } else {
+            console.log('logging to the file failed')
+        }
+    })
+}
+
+
 // timer to execute the worker process once per minute
 workers.loop = () => {
     setInterval(() => {
@@ -204,13 +236,61 @@ workers.loop = () => {
     }, 1000 * 60)
 }
 
+// rotate/compress the log files
+workers.rotateLogs = function() {
+    // list all the non compressed log files
+    _logs.list(false, function(err, logs) {
+
+        if (!err && logs && logs.length > 0) {
+            logs.forEach(logName => {
+
+                // compress the data to a different file
+                const logId = logName.replace('.log', '')
+                const newFileId = `${logId}-${Date.now()}`
+
+                _logs.compress(logId, newFileId, function(err) {
+                    if (!err) {
+                        // clear the log file after sending its content to a compressed file
+                        // to prepare it to receive fresh data
+                        _logs.truncate(logId, function(err) {
+                            if (!err) {
+                                console.log('success truncating log file')
+                            } else {
+                                console.log('error truncating log file')
+                            }
+                        })
+                    } else {
+                        console.log('error compressing one of the log files', err)
+                    }
+                })
+            })
+        } else {
+            console.log('error: could not file any logs to compress')
+        }
+    })
+}
+
+// timer to execute the log rotation process once per day
+workers.logRotationLoop = function() {
+    setInterval(() => {
+        workers.rotateLogs()
+    }, 1000 * 60 * 60 * 24) // once per day
+}
+
 
 // init script
 workers.init = function() {
     // execute all the checks immediately
     workers.gatherAllChecks()
+
     // call the loop so the checks will execute later on
     workers.loop()
+
+    // compress all the logs immediately
+    workers.rotateLogs()
+
+    // cal the compression loops so logs will be compressed later on
+    workers.logRotationLoop()
 }
 
 
